@@ -15,14 +15,83 @@
 
 default_platform(:android)
 
+def read_version_code
+  # Path to your version.properties file
+  version_props_file = './version.properties'
+
+  # Read the current version code from version.properties
+  File.foreach(version_props_file) do |line|
+    return line.strip.split('=')[1].to_i if line.include?('VERSION_CODE')
+  end
+
+  # Return a default value if VERSION_CODE is not found
+  return 1
+end
+
+def update_version_code(new_version_code)
+  # Path to your version.properties file
+  version_props_file = './version.properties'
+
+  # Update the version code in version.properties
+  lines = File.readlines(version_props_file)
+  lines.each_with_index do |line, index|
+    if line.include?('VERSION_CODE')
+      lines[index] = "VERSION_CODE=#{new_version_code}\n"
+    end
+  end
+
+  # Write the updated lines back to version.properties
+  File.open(version_props_file, 'w') do |file|
+    lines.each { |line| file.write(line) }
+  end
+
+  UI.success("Updated VERSION_CODE to #{new_version_code}")
+end
+
+def update_version_properties(version_code, version_name)
+  properties_file = './version.properties'
+  version_info = "VERSION_CODE=#{version_code}\nVERSION_NAME=#{version_name}"
+  File.write(properties_file, version_info)
+end
+
+def read_version_properties
+  properties_file = './version.properties'
+  return File.read(properties_file) if File.exist?(properties_file)
+  raise "Could not read version.properties!"
+end
+
+def increment_version_name(current_version_name)
+  # Example logic to increment version name (e.g., 1.0.0 -> 1.0.1)
+  parts = current_version_name.split('.')
+  major = parts[0].to_i
+  minor = parts[1].to_i
+  patch = parts[2].to_i + 1
+  return "#{major}.#{minor}.#{patch}"
+end
+
 platform :android do
   desc "Runs all the tests"
   lane :test do
     gradle(task: "test")
   end
 
+  lane :increment_version_code do
+    # new_version_code = read_version_code + 1 # Custom method to read and increment version code
+    # update_version_code(new_version_code) # Custom method to update version code in version.properties
+    properties = read_version_properties.split("\n")
+    current_version_code = properties.find { |line| line.start_with?('VERSION_CODE=') }.split('=')[1].to_i
+    current_version_name = properties.find { |line| line.start_with?('VERSION_NAME=') }.split('=')[1]
+    
+    new_version_code = current_version_code + 1
+    new_version_name = increment_version_name(current_version_name) # Example function to increment version name
+
+    update_version_properties(new_version_code, new_version_name)
+    UI.success("Updated VERSION_CODE to #{new_version_code} and VERSION_NAME to #{new_version_name}")
+  end
+
   desc "Submit a new Beta Build to Crashlytics Beta"
   lane :beta do
+    increment_version_code
     gradle(task: "clean assembleRelease")
     gradle(task: 'assemble', build_type: 'Release', project_dir: './')
     # sh "your_script.sh"
