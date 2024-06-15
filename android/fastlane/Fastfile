@@ -48,17 +48,22 @@ def update_version_code(new_version_code)
   UI.success("Updated VERSION_CODE to #{new_version_code}")
 end
 
+# Update version properties
+
 def update_version_properties(version_code, version_name)
   properties_file = './version.properties'
   version_info = "VERSION_CODE=#{version_code}\nVERSION_NAME=#{version_name}"
   File.write(properties_file, version_info)
 end
 
+# Read version from version properties
+
 def read_version_properties
   properties_file = './version.properties'
   return File.read(properties_file) if File.exist?(properties_file)
   raise "Could not read version.properties!"
 end
+
 
 def increment_version_name(current_version_name)
   # Example logic to increment version name (e.g., 1.0.0 -> 1.0.1)
@@ -76,8 +81,6 @@ platform :android do
   end
 
   lane :increment_version_code do
-    # new_version_code = read_version_code + 1 # Custom method to read and increment version code
-    # update_version_code(new_version_code) # Custom method to update version code in version.properties
     properties = read_version_properties.split("\n")
     current_version_code = properties.find { |line| line.start_with?('VERSION_CODE=') }.split('=')[1].to_i
     current_version_name = properties.find { |line| line.start_with?('VERSION_NAME=') }.split('=')[1]
