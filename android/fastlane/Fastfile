@@ -15,47 +15,6 @@
 
 default_platform(:android)
 
-def read_version_code
-  # Path to your version.properties file
-  version_props_file = './version.properties'
-
-  # Read the current version code from version.properties
-  File.foreach(version_props_file) do |line|
-    return line.strip.split('=')[1].to_i if line.include?('VERSION_CODE')
-  end
-
-  # Return a default value if VERSION_CODE is not found
-  return 1
-end
-
-def update_version_code(new_version_code)
-  # Path to your version.properties file
-  version_props_file = './version.properties'
-
-  # Update the version code in version.properties
-  lines = File.readlines(version_props_file)
-  lines.each_with_index do |line, index|
-    if line.include?('VERSION_CODE')
-      lines[index] = "VERSION_CODE=#{new_version_code}\n"
-    end
-  end
-
-  # Write the updated lines back to version.properties
-  File.open(version_props_file, 'w') do |file|
-    lines.each { |line| file.write(line) }
-  end
-
-  UI.success("Updated VERSION_CODE to #{new_version_code}")
-end
-
-# Update version properties
-
-def update_version_properties(version_code, version_name)
-  properties_file = './version.properties'
-  version_info = "VERSION_CODE=#{version_code}\nVERSION_NAME=#{version_name}"
-  File.write(properties_file, version_info)
-end
-
 # Read version from version properties
 
 def read_version_properties
@@ -71,7 +30,16 @@ def increment_version_name(current_version_name)
   major = parts[0].to_i
   minor = parts[1].to_i
   patch = parts[2].to_i + 1
+  UI.success("version name #{major}.#{minor}.#{patch}")
   return "#{major}.#{minor}.#{patch}"
+end
+
+# Update version properties
+
+def update_version_properties(version_code, version_name)
+  properties_file = './version.properties'
+  version_info = "VERSION_CODE=#{version_code}\nVERSION_NAME=#{version_name}"
+  File.write(properties_file, version_info)
 end
 
 platform :android do
@@ -80,15 +48,31 @@ platform :android do
     gradle(task: "test")
   end
 
-  lane :increment_version_code do
+  lane :update_version do
+    # Read the properties file to get the current version information
     properties = read_version_properties.split("\n")
     current_version_code = properties.find { |line| line.start_with?('VERSION_CODE=') }.split('=')[1].to_i
     current_version_name = properties.find { |line| line.start_with?('VERSION_NAME=') }.split('=')[1]
     
-    new_version_code = current_version_code + 1
-    new_version_name = increment_version_name(current_version_name) # Example function to increment version name
+    # new_version_name = increment_version_name(current_version_name) # Example function to increment version name
+    new_version_name = increment_version_name(current_version_name)
 
     update_version_properties(new_version_code, new_version_name)
+
+    new_version_code = current_version_code + 1
+    UI.success("Updated VERSION_CODE to #{new_version_code} and VERSION_NAME to #{current_version_code} #{new_version_name}")
+    
+    gradle_file = '../app/build.gradle'
+
+    # Read the contents of the build.gradle file
+    gradle_content = File.read(gradle_file)
+  
+    # Replace versionCode and versionName with new values
+    gradle_content.gsub!(/versionCode \d+/, "versionCode #{new_version_code}")
+    gradle_content.gsub!(/versionName "[^"]+"/, "versionName \"#{new_version_name}\"")
+  
+    # Write the updated content back to the build.gradle file
+    File.open(gradle_file, 'w') { |file| file.write(gradle_content) }
     UI.success("Updated VERSION_CODE to #{new_version_code} and VERSION_NAME to #{new_version_name}")
   end
 
