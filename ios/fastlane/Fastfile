@@ -1,0 +1,79 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+# Uncomment the line if you want fastlane to automatically update itself
+# update_fastlane
+
+def read_version_properties
+  properties_file = './version.properties'
+  return File.read(properties_file) if File.exist?(properties_file)
+  raise "Could not read version.properties!"
+end
+
+
+def increment_version_name(current_version_name)
+  # Example logic to increment version name (e.g., 1.0.0 -> 1.0.1)
+  parts = current_version_name.split('.')
+  major = parts[0].to_i
+  minor = parts[1].to_i
+  patch = parts[2].to_i + 1
+  UI.success("version name #{major}.#{minor}.#{patch}")
+  return "#{major}.#{minor}.#{patch}"
+end
+
+# Update version properties
+
+def update_version_properties(version_build, version)
+  properties_file = './version.properties'
+  version_info = "VERSION=#{version}\nBUILD=#{version_build}"
+  File.write(properties_file, version_info)
+end
+
+default_platform(:ios)
+
+platform :ios do
+
+  lane :update_ios_version do
+    # Define the path to your iOS project's .pbxproj file
+    properties = read_version_properties.split("\n")
+    current_version_build = properties.find { |line| line.start_with?('BUILD=') }.split('=')[1].to_i
+    current_version = properties.find { |line| line.start_with?('VERSION=') }.split('=')[1]
+    
+    # new_version_name = increment_version_name(current_version_name) # Example function to increment version name
+    new_version = increment_version_name(current_version)
+    new_version_build = current_version_build + 1
+    
+    update_version_properties(new_version_build, new_version)
+
+    pbxproj_file = "../TkbHealthApp.xcodeproj/project.pbxproj"
+  
+    # Read the contents of the project.pbxproj file
+    pbxproj_content = File.read(pbxproj_file)
+  
+    # Update MARKETING_VERSION (the version) and CURRENT_PROJECT_VERSION (the build number)
+    pbxproj_content.gsub!(/MARKETING_VERSION = [^;]+;/, "MARKETING_VERSION = #{new_version};")
+    pbxproj_content.gsub!(/CURRENT_PROJECT_VERSION = [^;]+;/, "CURRENT_PROJECT_VERSION = #{new_version_build};")
+  
+    # Write the updated content back to the project.pbxproj file
+    File.open(pbxproj_file, "w") { |file| file.write(pbxproj_content) }
+  
+    # Confirm the changes
+    UI.success("Updated iOS MARKETING_VERSION to #{new_version} and CURRENT_PROJECT_VERSION to #{new_version_build}")
+  end
+
+  desc "Push a new beta build to TestFlight"
+  lane :beta do
+    increment_build_number(xcodeproj: "TkbHealthApp.xcodeproj")
+    build_app(workspace: "TkbHealthApp.xcworkspace", scheme: "TkbHealthApp")
+    upload_to_testflight
+  end
+end
